@@ -1,6 +1,6 @@
 # Inteligência da Robô Conecta
 
-Essa aplicação permite que você faça uma pergunta à Conecta após falar a palavra "Conecta". Perguntas como quem é a conecta, sobre o que é o núcleo de robótica, como ela está, que horas são, o que é o submarino rov, entre outras. A aplicação responde a pergunta e apresenta na tela uma animação representando as expressões de seus olhos, de acordo com seu status (ausente, aguardando pergunta e respondendo).
+Essa aplicação permite que você faça uma pergunta à Conecta após falar a palavra "Conecta". Perguntas como quem é a conecta, sobre o que é o núcleo de robótica, como ela está, que horas são, o que é o submarino rov, além de uma integração com o Chat GPT. A aplicação responde a pergunta e apresenta na tela uma animação representando as expressões de seus olhos, de acordo com seu status (ausente, aguardando pergunta e respondendo). O nome do robô pode variar de acordo com o que for declarado no código ou com o tipo de sistema operacional instalado (Totem ou Conecta).
 
 ## Tecnologia
 
@@ -12,17 +12,14 @@ Esse projeto foi desenvolvido com [Python](https://www.python.org/downloads/) e 
 
 ou instalar individualmente:
 
-### `pip3 install pvporcupine`
-"Picovoice Porcupine" para reconhecer a palavra de ativação
+### `pip install playsound==1.2.2`
+"playsound" para reproduzir arquivos de audio
+
+### `pip install firebase_admin`
+"firebase_admin" para poder utilizar o firebase
 
 ### `pip install python-dotenv`
 "DotEnv" para processar o arquivo .env
-
-### `pip3 install keyboard`
-"Keyboard" para iniciar o terminal em tela cheia
-
-### `pip install pyaudio`
-"PyAudio" para utilizar o microfone no Porcupine
 
 ### `pip3 install vosk`
 "vosk-api" para reconhecimento de voz
@@ -30,31 +27,55 @@ ou instalar individualmente:
 ### `pip install SpeechRecognition`
 "SpeechRecognition" para reconhecer a voz e transformá-la em texto
 
+### `pip3 install pvporcupine`
+"Picovoice Porcupine" para reconhecer a palavra de ativação
+
 ### `pip install pyaudio`
-"pyaudio" possibilita a captura de sons através do microfone
+"PyAudio" para utilizar o microfone no Porcupine - "pyaudio" possibilita a captura de sons através do microfone
+
+### `pip3 install keyboard`
+"Keyboard" para iniciar o terminal em tela cheia
 
 ### `pip install pyttsx3`
 "pyttsx3" para transformar texto em audio
 
-### `pip install playsound==1.2.2`
-"playsound" para reproduzir arquivos de audio
+### `pip install gTTS`
+"gTTS" para transformar texto em audio (raspbian)
 
 ### `pip install requests`
 "requests" para consumir APIs
 
-### `pip install firebase_admin`
-"firebase_admin" para poder utilizar o firebase
+### `pip instal openai`
+"requests" para usar o ChatGPT
 
-###  `pip install opencv-python`
-""opencv-python" para poder reproduzir vídeos e reconhecer faces ou objetos
+### `pip install opencv-python`
+Visão computacional
+
+### `pip install imutils`
+Utilitários para manipulação de imagens
+
+### `pip install mediapipe`
+Ferramenta de detecção de poses
+
+### `pip install pythonosc`
+
+### `pip install face_recognition`
+Reconhecimento facial
+
+### `pip install uuid`
+Geração de hash 
 
 ###  `pip install wikipedia`
-"wikipedia" para responder perguntas sobre "o que é" e "quem é"
+"wikipedia" para responder perguntas sobre "o que é" e "quem é" (descontinuado após OpenAI)
 
 ### `pip install googletrans==3.1.0a0`    
-"googletrans" para tradução  
+"googletrans" para tradução (desativado, mas pode ser útil no futuro)
 
 ## Configuração
+
+Configure todos os dados pedidos no arquivo .env, será necessário uma conta nos serviços como Picovoice, OpenAI, Firebase e OpenWeather. 
+
+
 
 # EXECUTAR AUTOMATICAMENTE NO LINUX RASPBIAN
 
@@ -82,7 +103,6 @@ Para iniciar a aplicação.
 
 ## O que falta?
 
-- Adicionar mais perguntas <br/>
 - Melhorar o reconhecimento de voz
 
 ## Para ativar a voz masculina no windows - importe o arquivo Microsoft_Daniel.reg
