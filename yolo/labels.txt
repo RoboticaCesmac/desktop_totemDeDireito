@@ -1,0 +1,80 @@
+Pessoa
+Bicicleta
+Carro
+Motorbike
+Aviao
+Onibus
+Trem
+Caminhao
+Barco
+Semaforo
+Hidrante
+Placa PARE
+Parquimetro
+Banco
+Passaros
+Gato
+Cachorro
+Cavalo
+Ovelha
+Vaca
+Elefante
+Urso
+Zebra
+Girafa
+Mochila
+Guarda Chuva
+Bolsa
+Gravata
+Mala
+Frisbee
+Skis
+Snowboard
+Bola
+Pipa
+Taco de Baseball
+Luva de Baseball
+Skate
+Prancha de Surf
+Raquete de Tenis
+Garrafa
+Vinho
+Copo
+Garfo
+Faca
+Colher
+Tigela
+Banana
+Maca
+Sanduiche
+Laranja
+Brocolis
+Cenoura
+Cachorro Quente
+Pizza
+Rosquinha
+Bolo
+Cadeira
+Sofa
+Vaso de Planta
+Cama
+Mesa de Janta
+Vaso sanitario
+Monitor
+Notebook
+Mouse
+Controle
+Teclado
+Smartphone
+Microondas
+Forno
+Torradeira
+Pia
+Geladeira
+Livro
+Relogio
+Vaso
+Tesoura
+Pelucia
+Secador de Cabelo
+Escova de Dentes
