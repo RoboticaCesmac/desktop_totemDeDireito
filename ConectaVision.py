@@ -1,19 +1,21 @@
 # Parte do projeto tem como base o projeto do Canal do Sandeco
 import cv2
-import time
 import glob
 import numpy as np
 from imutils import face_utils
 import dlib
-from mediapipe.framework.formats import landmark_pb2
-from pythonosc import udp_client
-from pythonosc.osc_message_builder import OscMessageBuilder
 import mediapipe as mp
 import face_recognition
 import os
 import uuid
+import json
+from deepface import DeepFace
 
 
+
+
+cam = None #captura da imagem
+# ultimaInteracao = 0 # é o tempo desde que interagiu com algém pela câmera
 frameRosto = None # É a imagem do rosto
 nomeRosto = "" # é o nome do rosto que será cadastrado
 nomeRostoReconhecido = "Desconhecido" # é o nome do rosto que foi detectado/reconhecido
@@ -38,44 +40,6 @@ for file in glob.glob("*.png"):
 os.chdir(os.path.dirname(os.getcwd()))
 tempos = []
 
-OSC_ADDRESS = "/mediapipe/pose"
-
-# gera uma média de FPS
-def AVG(array):
-    return sum(array)/len(array)
-
-#salva pose no osc client
-def send_pose(client: udp_client,
-              landmark_list: landmark_pb2.NormalizedLandmarkList):
-    if landmark_list is None:
-        client.send_message(OSC_ADDRESS, 0)
-        return
-
-    # create message and send
-    builder = OscMessageBuilder(address=OSC_ADDRESS)
-    builder.add_arg(1)
-    for landmark in landmark_list.landmark:
-        builder.add_arg(landmark.x)
-        builder.add_arg(landmark.y)
-        builder.add_arg(landmark.z)
-        builder.add_arg(landmark.visibility)
-    msg = builder.build()
-    client.send(msg)
-
-
-
-# cria client osc e inicializa mediapipe
-client = udp_client.SimpleUDPClient("127.0.0.1", 7500, True)
-mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(
-        smooth_landmarks=False,
-        static_image_mode=True,
-        model_complexity=1,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5)
-connections = mp_pose.POSE_CONNECTIONS
-
 # detector de marcas faciais
 facePredictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
@@ -86,8 +50,8 @@ valorMaximoTempoProcessamento=0
 modo_visual = "ativado"
 
 # delimite aqui quais modos de manipulação de imagem você vai usar, separe-os por vírgulas. Deixe a string vazia se não for usar nenhum modo
-# modos disponíveis: rastreamento de poses, rastreamento de objetos, rastreamento facial, reconhecimento facial
-modo = "rastreamento de poses, rastreamento de objetos, rastreamento facial, reconhecimento facial"
+# modos disponíveis: rastreamento de poses, rastreamento de objetos, rastreamento facial, reconhecimento facial, reconhecimento de gestos, reconhecimento de emoções
+modo = "reconhecimento de emoções"
 
 # detector de faces
 detectorFacial = dlib.get_frontal_face_detector()
@@ -128,12 +92,13 @@ def cadastrarRosto():
 
 # Reconhece rostos
 def reconhecerRostos(img):
+    # global ultimaInteracao
     # pega o nome do rosto que está sendo reconhecido no momento
     global nomeRostoReconhecido
     # pega a variável que define se apenas uma face na tela
     global faceDetectada
     # inverte a imagem que vem da câmera
-    frame = cv2.flip(img, 180)
+    frame = img#cv2.flip(img, 180)
     #BGR_PARA_RGB
     rgb_frame = frame[:, :, ::-1]
     # pega a localização de faces na imagem
@@ -178,9 +143,42 @@ def reconhecerRostos(img):
     return frame
 
 
+def reconhecerEmocoes(image):
+    global ultimaInteracao
+    mp_drawing = mp.solutions.drawing_utils
+    emotion_dict = None
+    with open('JSON/emotions.json') as f:
+            emotion_dict = json.load(f)
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray_image)
+
+    for face in faces:
+        x1, y1, x2, y2 = face.left(), face.top(), face.right(), face.bottom()
+
+        shape = face_utils.shape_to_np(facePredictor(gray_image, face))
+        for (x, y) in shape:
+            cv2.circle(image, (x, y), 2, (0, 255, 0), -1)
+    
+        face_image = image[y1:y2, x1:x2]
+
+        emotion = DeepFace.analyze(face_image, actions=["emotion"], enforce_detection=False, silent=True)
+
+        try:
+            dominant_emotion = emotion[0]["dominant_emotion"]
+
+            if dominant_emotion in emotion_dict.keys():
+                cv2.putText(image, emotion_dict[dominant_emotion].upper(), (x1, y1 - 10), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0), 1)
+            else:
+                cv2.putText(image, dominant_emotion.upper(), (x1, y1 - 10), cv2.FONT_HERSHEY_DUPLEX, 1, (0, 255, 0), 1)
+
+        except:
+            pass
+            # print('Emoção não encontrada.')
+    return image
 
 #detecta objetos em uma imagem
 def detectarObjetos(image, nn):
+    global ultimaInteracao
     #guarda  a altura e largura dos objetos
     (altura, largura) = image.shape[:2]
 
@@ -221,9 +219,7 @@ def detectarObjetos(image, nn):
         for i in resultados.flatten():
             (x, y) = (boxes[i][0], boxes[i][1])
             (w, h) = (boxes[i][2], boxes[i][3])
-
-       
-     
+            
             cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 1)
             # cv2.circle(image, center, radius, (0, 255, 0), 1)
 
@@ -238,14 +234,12 @@ def detectarObjetos(image, nn):
 
 # detecta rostos em uma imagem passada por parâmetro
 def detectarRostos(img):
+
     #detecta rostos
     rects = detectorFacial(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 1)
 
     #para cada rosto detectado
     for (i, rect) in enumerate(rects):
-	    #guarda as marcas faciais
-        shape = face_utils.shape_to_np(facePredictor(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), rect))
-
 	    # salva as cordenadas da caixa de marcação
         (x, y, w, h) = face_utils.rect_to_bb(rect)
         #guarda o centro do rosto para plotar um circulo
@@ -255,14 +249,20 @@ def detectarRostos(img):
 
         #cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.circle(img, center, radius-30, (0, 255, 0), 1)
-
-	    # desenha um circulo nos rostos detectados
-        for (x, y) in shape:
-            cv2.circle(img, (x, y), 2, (0, 255, 0), -1)
 	
     return img
 
 def detectaPoses(img):
+    mp_drawing = mp.solutions.drawing_utils
+    mp_pose = mp.solutions.pose
+    pose = mp_pose.Pose(
+            smooth_landmarks=False,
+            static_image_mode=True,
+            model_complexity=1,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5)
+    connections = mp_pose.POSE_CONNECTIONS
+
     image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     # To improve performance, optionally mark the image as not writeable to
@@ -270,110 +270,114 @@ def detectaPoses(img):
     image.flags.writeable = False
     results = pose.process(image)
 
-    # send the pose over osc
-    send_pose(client, results.pose_landmarks)
 
     # Draw the pose annotation on the image.
     image.flags.writeable = True
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
     mp_drawing.draw_landmarks(image, results.pose_landmarks, connections)
 
     return image
 
+def reconheceGestos(img):
+    # global ultimaInteracao
+    mp_drawing = mp.solutions.drawing_utils
+    mp_hands = mp.solutions.hands
+    gestures_dict = None
+    special_gestures_dict = None
 
-
-"""
-Define um filtro colorido para a imagem, essa função é puramente perfumaria, usada para dar um toque mais robótico, não é ativada por padrão
-"""
-def filtroImagem(frame):
-    b, g, r = cv2.split(frame)
-    zeros_ch = np.zeros(frame.shape[0:2], dtype="uint8")
-    frame = cv2.merge([b, zeros_ch, zeros_ch])
-    return frame
-
-
-
-def capturarMovimentos():
-    global frameRosto
+    with open('JSON/gestures.json') as f:
+        gestures_dict = json.load(f)
+    with open('JSON/special_gestures.json') as f:
+        special_gestures_dict = json.load(f)
     
+    with mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7) as hands:
+        image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = hands.process(image)
+
+        image.flags.writeable = True
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+        if results.multi_hand_landmarks:
+            hand_results = []
+            for hand_landmarks in results.multi_hand_landmarks:
+                thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+                ring_tip = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP]
+                pinky_tip = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+
+                thumb_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP]
+                index_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP]
+                middle_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
+                ring_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_MCP]
+                pinky_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_MCP]
+
+                thumb_raised = thumb_tip.y < thumb_mcp.y
+                index_raised = index_tip.y < index_mcp.y
+                middle_raised = middle_tip.y < middle_mcp.y
+                ring_raised = ring_tip.y < ring_mcp.y
+                pinky_raised = pinky_tip.y < pinky_mcp.y
+
+                conditions = [thumb_raised, index_raised, middle_raised, ring_raised, pinky_raised]
+                text = ""
+
+                for gesture, gesture_conditions in gestures_dict.items():
+                    if conditions == gesture_conditions:
+                        text = gesture
+                
+                for gesture, special_gesture in special_gestures_dict.items():
+                    if conditions == special_gesture["conditions"]:
+                        for finger_pair in special_gesture["finger_pairs"]:
+                            finger1_tip = hand_landmarks.landmark[finger_pair[0]]
+                            finger2_tip = hand_landmarks.landmark[finger_pair[1]]
+                            distance = np.sqrt((finger1_tip.x - finger2_tip.x) ** 2 + (finger1_tip.y - finger2_tip.y) ** 2)
+                            if distance > special_gesture["max_distance"]:
+                                break
+                            else:
+                                text = gesture
+                hand_results.append(text)
+                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+            for result in hand_results:
+                if result:
+                    cv2.putText(image, result, (25, 100), cv2.FONT_HERSHEY_DUPLEX, 1.5, (0,255,0), 1)
+        return image
+
+def iniciarCapturaDeImagem():
+    global cam
     # Carregar Webcam
     cam = cv2.VideoCapture(0)
 
+def capturarMovimentos():
+    global cam
+    global frameRosto
     # Para cada frame...
-    while True:
-        try:
-            # Armazena imagem em variavel
-            ret, img = cam.read()
-            frameRosto = img
-            # (h, w) = img.shape[:2]
 
-            #salva quando começa a contar o tempo gasto para processar
-            start_time = time.time()
+    try:
+        # Armazena imagem em variavel
+        ret, img = cam.read()
+        frameRosto = img
+        # (h, w) = img.shape[:2]
+        if "reconhecimento de emoções" in modo:
+            img = reconhecerEmocoes(img)
+        if "reconhecimento facial" in modo:
+            img = reconhecerRostos(img)
+        if "reconhecimento de gestos" in modo:
+            img = reconheceGestos(img)
+        if "rastreamento de poses" in modo:
+            img = detectaPoses(img)
+        if "rastreamento de objetos" in modo:
+            img = detectarObjetos(img, net)
+        if "rastreamento facial" in modo:
+            img = detectarRostos(img)
 
-            if "reconhecimento facial" in modo:
-                img = reconhecerRostos(img)
-            if "rastreamento de poses" in modo:
-                img = detectaPoses(img)
-            if "rastreamento de objetos" in modo:
-                img = detectarObjetos(img, net)
-            if "rastreamento facial" in modo:
-                img = detectarRostos(img)
-            #salva quando para de contar o tempo gasto para processar
-            end_time = time.time()
+        #verifica se deve mostrar informações na imagem
+        if (modo_visual == "ativado"):
+            img = cv2.resize(img, (600, 400))
+            return img
 
-            #pega o maior valor apresentado no tempo gasto para processar
-            global valorMaximoTempoProcessamento
-            if (end_time-start_time)>valorMaximoTempoProcessamento:
-                valorMaximoTempoProcessamento = end_time-start_time
-            tempos.append(end_time-start_time)
-            if(len(tempos)>20):
-                tempos.pop(0)
-
-            
-            #verifica se deve mostrar informações na imagem
-            if (modo_visual == "ativado"):
-                
-                # #printa o tempo máximo registrado para processar
-                # cv2.putText(
-                #     img, "MAX: " + str(int(valorMaximoTempoProcessamento*1000)) + "MS", (25, 25), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1
-                # )
-                # cv2.putText(
-                #     img, "AVG: "+ str(int(AVG(tempos)*1000)) + "MS", (25, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1
-                # )
-                # #registra em tempo real o tempo gasto para processar
-                # cv2.putText(
-                #     img, "NOW: " + str((int((end_time-start_time)*1000))) + "MS", (25, 75), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1
-                # )
-                
-                # height = img.shape[0]
-                # width = img.shape[1]
-
-                # cv2.putText(img, "INTERFACE DO SISTEMA: "+modo_visual.upper(),
-                #             (int(width*0.01), int(height*0.05)), cv2.FONT_HERSHEY_PLAIN,  1, (255, 255, 255), 1)
-                # cv2.putText(img, "MODO: " + modo.upper(),
-                #             (int(width*0.6), int(height*0.95)), cv2.FONT_HERSHEY_PLAIN,  1, (255, 255, 255), 1)
-                
-                #declara o tamanho da janela para tela cheia
-                # cv2.namedWindow("Conecta Vision", cv2.WND_PROP_FULLSCREEN)
-                # cv2.moveWindow("Conecta Vision", -480, 601)
-
-
-                img = cv2.resize(img, (600, 400))
-                #muda para tela cheia
-                # cv2.setWindowProperty(
-                #     "Conecta Vision", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-
-                return img
-                # # Plotar imagem
-                # cv2.imshow("Conecta Vision", img)
-
-                # # Aguarda pressionar "q" para encerrar o programa
-                # key = cv2.waitKey(1)
-                # if key == ord('q') or key == ord('Q'):
-                #     break
-        except Exception as e:
-            print(e)
+    except Exception as e:
+        print(e)
 
     # Libera acesso à webcam
     cam.release()

@@ -1,7 +1,7 @@
 import time
 
 def dormir():
-  time.sleep(0.01)
+  time.sleep(0.005)
 
 
 """

@@ -1,0 +1,7 @@
+{
+    "Também te amo": {
+        "conditions": [true, true, true, false, false],
+        "finger_pairs": [[4, 8]],
+        "max_distance": 0.2
+    }
+}

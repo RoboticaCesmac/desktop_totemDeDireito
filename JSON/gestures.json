@@ -1,0 +1,5 @@
+{
+    "ROCK": [true, true, false, false, true],
+    "PAZ E AMOR": [true, true, true, false, false],
+    "LEGAL": [true, false, false, false, false]
+}
